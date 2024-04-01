@@ -1,0 +1,44 @@
+{
+    "gammaDOWN": {
+        "base_offset": 73644016,
+        "offsets": [
+            0,
+            64,
+            168,
+            1312,
+            384,
+            32,
+            2308
+        ],
+        "changed": 0.1,
+        "default": 2.2,
+        "keybind": "u",
+        "timer": 300
+    },
+    "sensitivityUP": {
+        "base_offset": 73640128,
+        "offsets": [
+            3424,
+            416,
+            32,
+            864,
+            688,
+            32,
+            2064
+        ],
+        "changed": 90.0,
+        "default": 1.0,
+        "keybind": "o",
+        "timer": 300
+    },
+    "fps": {
+        "base_offset": 80100752,
+        "offsets": [
+            48
+        ],
+        "changed": 8.0,
+        "default": 90.0,
+        "keybind": "p",
+        "timer": 300
+    }
+}
