@@ -163,3 +163,5 @@ EtB hack.code-workspace
 data/fov.json
 fov.json
 test.py
+data/Sens.13.sqlite
+data/stam.10.sqlite
