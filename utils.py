@@ -4,6 +4,7 @@ from os import getcwd
 from requests import get
 from json import load,dump
 from sqlite3 import connect
+from os import mkdir
 
 json = {
     "gammaDOWN" : {
@@ -31,6 +32,18 @@ json = {
         "timer" : 300
     }
 }
+
+def getPtrAddr(mem, base, offsets):
+    addr = mem.read_longlong(base)
+    #logging.debug(f'getPtrAddr:Base addr: {str(hex(addr))}')
+    for offset in offsets[:-1]:
+        #logging.debug(f'getPtrAddr:Adding {hex(offset)}')
+        addr = mem.read_longlong(addr + offset)
+        #logging.debug(f'getPtrAddr:New addr{str(hex(addr))}')
+    #logging.debug(f'getPtrAddr:Adding {hex(offsets[-1])}')
+    addr += offsets[-1]
+    #logging.debug(str(hex(addr)))
+    return addr
 
 def gen_hash(filename):
     path = Path(f"{getcwd()}\\{filename}")
@@ -60,18 +73,31 @@ class check_version():
                 return version.text.strip()
         raise Exception("Could not get 200 status code from remote version")
 
+def attempt_download(module) -> None:
+    print(f"Attempting to download {module}")
+    base_url = "https://raw.githubusercontent.com/Gacaes/EtB-mod/main/"
+    for _ in range(3):
+        file = get(base_url+module)
+        status = file.status_code
+        print(f"{module} status code:{status}")
+        if status == 200:
+            with open(module,'w',encoding="utf-8") as f:
+                f.write(file.text)
+            break
+
 def validate_config(hash) -> dict:
     try:
         if gen_hash("data\\config.json") == hash:
             # import and return the config
             return load(open("data\\config.json",'r'))
     except FileNotFoundError:
-        pass
+        if not Path("data").exists():
+            mkdir("data")
     # DL it
     #logging.warning("config.json not found! Attempting to download.")
     print("config.json not found! Attempting to download.")
     for _ in range(3):
-        file = get("https://raw.githubusercontent.com/Gacaes/EtB-mod/main/config.json")
+        file = get("https://raw.githubusercontent.com/Gacaes/EtB-mod/main/data/config.json")
         status = file.status_code
         print(f"Config.json status code:{status}")
         if status == 200:
@@ -83,8 +109,7 @@ def validate_config(hash) -> dict:
     raise Exception("Could not validate config.json")
 
 def gen_PTRs_from_sql(module):
-    modules = {"fov" : "data\\fov.14.sqlite"}
-    con = connect(modules[module])
+    con = connect(module)
     cur = con.cursor()
     temp = cur.execute("""SELECT * FROM results""").fetchall()
     listing = [[hex(num) for num in i if num is not None] for i in temp]
@@ -99,4 +124,40 @@ def gen_PTRs_from_sql(module):
         dump(new_obj,f,indent=4)
     con.close()
 
-#gen_PTRs_from_sql("fov")
+def fresh_install(modules:str) -> bool:
+    #validate_config("")
+    if not Path("data").exists():
+        mkdir("data")
+    for module in modules:
+        try:
+            attempt_download(module)
+            if module.endswith(".sqlite"):
+                gen_PTRs_from_sql(module)
+        except Exception as ex:
+            return False
+    return True
+
+def get_config(modules, pymem_exe, pymem_module_base):
+    types = [] # types of punishments #list(config.keys())
+    ptrAddrs = []
+    config = load(open("data/config.json"))
+    for module_name in modules:
+        module = load(open(module_name))
+        print(f"Attempting to get ptr for {module_name}")
+        got = False
+        for ptr_name in list(module.keys()):
+            try:
+                config[module_name]["addr"] = getPtrAddr(pymem_exe, pymem_module_base+module[ptr_name]["base_offset"], module[ptr_name]["offsets"])
+                types.append(module_name)
+                print(f"ptr got!")
+                got = True
+                break
+            #except pymem.exception.MemoryReadError:
+            #    print(f"**WARNING**: Failed to get ptr for {i}")
+            except Exception as ex:
+                pass
+                #print(f"**EXCEPTION**: {ex}")
+        if not got:
+            config[module_name]["addr"]=None
+    return config
+        

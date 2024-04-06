@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
     "Gamma.10": {
         "changed": 0.1,
@@ -23,4 +24,31 @@
         "keybind": "0",
         "timer": 300
     }
+=======
+{
+    "Gamma.10": {
+        "changed": 0.1,
+        "default": 2.2,
+        "keybind": "u",
+        "timer": 300
+    },
+    "Sens.13": {
+        "changed": 90.0,
+        "default": 1.0,
+        "keybind": "o",
+        "timer": 300
+    },
+    "Fps": {
+        "changed": 8.0,
+        "default": 90.0,
+        "keybind": "p",
+        "timer": 300
+    },
+    "fov.14": {
+        "changed": 20.0,
+        "dfeault": 105.0,
+        "keybind": "0",
+        "timer": 300
+    }
+>>>>>>> 9af409881d20150e51b92da948c500ea4276ff33
 }

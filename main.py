@@ -13,18 +13,6 @@ def pressed(key,log=False) -> bool:
         return True
     return False
 
-def getPtrAddr(mem, base, offsets):
-    addr = mem.read_longlong(base)
-    logging.debug(f'getPtrAddr:Base addr: {str(hex(addr))}')
-    for offset in offsets[:-1]:
-        logging.debug(f'getPtrAddr:Adding {hex(offset)}')
-        addr = mem.read_longlong(addr + offset)
-        logging.debug(f'getPtrAddr:New addr{str(hex(addr))}')
-    logging.debug(f'getPtrAddr:Adding {hex(offsets[-1])}')
-    addr += offsets[-1]
-    logging.debug(str(hex(addr)))
-    return addr
-
 def timer(addr, time, changed_value, default_value, thread_id) -> None:
     global threads
     divs = time//5
@@ -41,33 +29,21 @@ def timer(addr, time, changed_value, default_value, thread_id) -> None:
 #@main_requires_admin
 def main(config):
     global threads
-    types = [] # types of punishments #list(config.keys())
+    types = [i for i in list(config.keys()) if config[i]["addr"] is not None] # types of punishments #list(config.keys())
     logging.debug("types="+str(types))
 
-    ptrAddrs = []
-    for i in list(config.keys()):
-        logging.debug("Getting ptr for "+str(i))
-        print(f"Getting ptr for {i}")
-        try:
-            ptrAddrs.append(getPtrAddr(pm, module+config[i]["base_offset"], config[i]["offsets"]))
-            types.append(i)
-            threads[i]={
-                "loop":True,
-                "activated":False,
-                "thread":Thread(target=timer,args=(
-                    ptrAddrs[-1],
-                    config[types[-1]]["timer"],
-                    config[types[-1]]["changed"],
-                    config[types[-1]]["default"],
-                    i))}
-            threads[i]["thread"].start()
-            #threads[i]["thread"].join()
-        except pymem.exception.MemoryReadError:
-            logging.warning("Invalid ptr for {i}")
-            print(f"**WARNING**: Failed to get ptr for {i}")
-        except Exception as ex:
-            logging.exception(str(ex))
-            print(f"**EXCEPTION**: {ex}")
+    for valid_module in types:
+        threads[valid_module]={
+            "loop":True,
+            "activated":False,
+            "thread":Thread(target=timer,args=(
+                config[valid_module]["addr"],
+                config[valid_module]["timer"],
+                config[valid_module]["changed"],
+                config[valid_module]["default"],
+                valid_module))}
+        threads[valid_module]["thread"].start()
+        #threads[i]["thread"].join()
     
     keybinds = [config[i]["keybind"] for i in types]
     logging.debug("keybinds="+str(keybinds))
@@ -108,6 +84,7 @@ if __name__ == "__main__":
     from requests import get
     from pathlib import Path
     import utils
+    from checksumdir import dirhash
 
     debug = False
     writing = False
@@ -121,31 +98,42 @@ if __name__ == "__main__":
 
         exit()
         
-
-    print("Escape the Backrooms Twitch-redemption mod by Gacaes\n")
     logging.basicConfig(level=logging.DEBUG,filename="log.log",filemode="w")
+    print("Escape the Backrooms Twitch-redemption mod by Gacaes\n")
 
     hashes = {
         "data\\config" : "21b325f4c06fbcf986f7ef5f95a0dc81"
     }
+    modules = [
+        "data/fov.14.sqlite",
+        "data/config.json",
+        "data/Gamma.10.sqlite",
+        "data/LOD.11.sqlite",
+        "data/MVol.10.sqlite",
+        "data/Sens.13.sqlite",
+        "data/stam.10.sqlite"
+    ]
 
-    VERSION = "1.1"
+    VERSION = "1.2"
     print(f"Current version: {VERSION}")
 
     try:
-        print("Loading...")
+        print("\nLoading...")
         start = ti()
         
         threads = {}
         
         check_version = utils.check_version(VERSION)
-        if not check_version:
-            print(f"A new version is avaliable: {check_version.version}")
+        if not bool(check_version):
+            print(f"A new version is avaliable: {str(check_version)}")
             # DL the new installer and run it
-            print("WIP")
-        config = utils.validate_config(hashes["config"])
-        #input("close")
-        #exit()
+            utils.attempt_download(f"dist/EtB_Installer_v.{str(check_version)}.exe")
+            #utils.fresh_install(modules) #DL the modules and process the sqlite files into json
+        if not Path("data").exists():
+            if not utils.fresh_install(modules):
+                print("Could not install required files.")
+                exit()
+        #config = utils.validate_config(hashes["data\\config"])
         
 
         try:
@@ -153,15 +141,19 @@ if __name__ == "__main__":
         except pymem.exception.ProcessNotFound:
             print("Try opening the game first, dummy")
             input("Press ENTER to close")
+            exit()
         except pymem.exception.CouldNotOpenProcess:
             print("Try opening this mod in Admin")
             input("Press ENTER to close")
+            exit()
         module = module_from_name(pm.process_handle, "Backrooms-Win64-Shipping.exe").lpBaseOfDll
         logging.debug(f'module:{str(hex(module))}')
+        config = utils.get_config(modules, pm, module)
+        print(f"{i}:{config[i]}" for i in list(config.keys()))
+        kill
 
         main(config)
     except Exception as ex:
         logging.exception(ex)
-        print("\n\n**FATAL ERROR**\nMore details found in log.log\n\n")
-        print(ex)
+        print(f"\n**FATAL ERROR**: {ex}\nMore details found in log.log\n\n")
         input("Press ENTER to exit")
